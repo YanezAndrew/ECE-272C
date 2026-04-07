@@ -2,6 +2,8 @@ import os
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+
 from nodes import (
     codegen_node,
     execute_node,
@@ -9,8 +11,6 @@ from nodes import (
     retry_codegen_node,
     respond_node,
 )
-
-load_dotenv()
 
 
 def should_retry(state: dict) -> str:
