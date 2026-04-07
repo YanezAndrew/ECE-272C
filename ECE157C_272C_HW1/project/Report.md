@@ -35,7 +35,7 @@ The script will:
 ### Project Structure
 
 ```
-ECE157C_272C_HW1/
+project/
 ├── agent.py              # LangGraph workflow definition
 ├── nodes.py              # Node functions (codegen, execute, evaluate, retry, respond)
 ├── test_agent.py         # run_agent() function + question runner
