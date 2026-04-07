@@ -1,0 +1,404 @@
+dataset_name,question,generated_code,final_answer
+housing,What is the average median house value across the dataset?,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/housing.csv')
+
+# Calculate the average median house value
+result = df['median_house_value'].mean()","The average median house value across the dataset is $206,943.86."
+housing,Which ocean proximity category has the highest average median house value?,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/housing.csv')
+
+# Group by 'ocean_proximity' and calculate the average 'median_house_value'
+average_values = df.groupby('ocean_proximity')['median_house_value'].mean()
+
+# Find the category with the highest average median house value
+result = average_values.idxmax()","The ocean proximity category ""ISLAND"" has the highest average median house value."
+housing,"What are the minimum, maximum, and median values of median house value?","import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/housing.csv')
+
+# Drop any rows with NaN values in 'median_house_value'
+df_clean = df.dropna(subset=['median_house_value'])
+
+# Calculate the minimum, maximum, and median values of 'median_house_value'
+min_value = df_clean['median_house_value'].min()
+max_value = df_clean['median_house_value'].max()
+median_value = df_clean['median_house_value'].median()
+
+# Store the result in a DataFrame
+result = pd.DataFrame({
+    'Statistic': ['Minimum', 'Maximum', 'Median'],
+    'Value': [min_value, max_value, median_value]
+})","The minimum value of the median house value is 14,999. The maximum value is 500,001, and the median value is 178,750."
+housing,How does median income vary across different ocean proximity categories?,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/housing.csv')
+
+# Handle missing values by dropping rows with NaN values in 'median_income' or 'ocean_proximity'
+df_clean = df.dropna(subset=['median_income', 'ocean_proximity'])
+
+# Calculate the mean median income for each ocean proximity category
+result = df_clean.groupby('ocean_proximity')['median_income'].mean().reset_index()
+
+result","The median income varies across different ocean proximity categories as follows:
+
+- <1H OCEAN: 4.21
+- INLAND: 3.20
+- ISLAND: 2.83
+- NEAR BAY: 4.17
+- NEAR OCEAN: 4.04
+
+Areas closer to the ocean, such as <1H OCEAN and NEAR BAY, tend to have higher median incomes compared to INLAND and ISLAND areas."
+housing,Which geographic areas (based on latitude and longitude ranges) have the highest average house prices?,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/housing.csv')
+
+# Handle missing values by dropping rows with NaN values
+df = df.dropna()
+
+# Define geographic areas by creating bins for latitude and longitude
+latitude_bins = pd.cut(df['latitude'], bins=5)
+longitude_bins = pd.cut(df['longitude'], bins=5)
+
+# Group by these bins and calculate the average house price
+grouped = df.groupby([latitude_bins, longitude_bins])['median_house_value'].mean().reset_index()
+
+# Find the geographic area with the highest average house price
+max_price_area = grouped.loc[grouped['median_house_value'].idxmax()]
+
+result = max_price_area","The geographic area with the highest average house prices is located within the latitude range of 36.31 to 38.19 and the longitude range of -124.36 to -122.378, with an average house price of approximately $334,769.89."
+housing,How does population density (defined as population per household) relate to median house value?,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/housing.csv')
+
+# Handle missing values by dropping rows with NaN values
+df = df.dropna()
+
+# Calculate population density
+df['population_density'] = df['population'] / df['households']
+
+# Analyze the relationship between population density and median house value
+result = df[['population_density', 'median_house_value']].corr().loc['population_density', 'median_house_value']","The correlation between population density (defined as population per household) and median house value is -0.0439, indicating a very weak negative relationship. This suggests that there is little to no linear relationship between these two variables."
+housing,Identify the top 5 most expensive geographic areas and explain the key factors contributing to their high prices.,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/housing.csv')
+
+# Handle missing values by dropping rows with NaN values
+df = df.dropna()
+
+# Group by 'ocean_proximity' and calculate the mean 'median_house_value'
+mean_values = df.groupby('ocean_proximity')['median_house_value'].mean().sort_values(ascending=False)
+
+# Identify the top 5 most expensive geographic areas
+top_5_expensive_areas = mean_values.head(5)
+
+# Analyze key factors contributing to high prices in these areas
+key_factors = df.groupby('ocean_proximity').agg({
+    'median_income': 'mean',
+    'housing_median_age': 'mean',
+    'total_rooms': 'mean',
+    'total_bedrooms': 'mean',
+    'population': 'mean',
+    'households': 'mean'
+}).loc[top_5_expensive_areas.index]
+
+# Combine the results into a single DataFrame
+result = pd.concat([top_5_expensive_areas, key_factors], axis=1)
+result.columns = ['mean_median_house_value', 'mean_median_income', 'mean_housing_median_age', 
+                  'mean_total_rooms', 'mean_total_bedrooms', 'mean_population', 'mean_households']
+
+result","The top 5 most expensive geographic areas based on mean median house value are:
+
+1. **ISLAND**: $414,700
+2. **NEAR BAY**: $258,748.60
+3. **NEAR OCEAN**: $253,831.32
+4. **<1H OCEAN**: $239,687.87
+5. **INLAND**: $125,732.58
+
+Key factors contributing to their high prices include:
+
+- **Proximity to Water**: Areas like ISLAND, NEAR BAY, and NEAR OCEAN are close to water bodies, which typically increases property values due to the desirability of waterfront views and recreational opportunities.
+- **Accessibility**: Locations such as <1H OCEAN, which are within an hour's drive to the ocean, offer a balance of accessibility to coastal amenities while potentially being more affordable than direct waterfront properties.
+- **Desirability and Lifestyle**: Coastal and near-water areas often attract buyers seeking a particular lifestyle, which can drive up demand and prices.
+- **Limited Availability**: Geographic constraints in areas like islands can limit the availability of land, further driving up prices due to scarcity."
+housing,Find coastal areas where house prices are relatively low despite proximity to the ocean. What factors might explain this?,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/housing.csv')
+
+# Handle missing values
+df = df.dropna()
+
+# Define coastal areas
+coastal_areas = ['<1H OCEAN', 'NEAR BAY', 'NEAR OCEAN']
+
+# Filter for coastal areas
+coastal_df = df[df['ocean_proximity'].isin(coastal_areas)]
+
+# Calculate the median house value for coastal areas
+median_house_value_coastal = coastal_df['median_house_value'].median()
+
+# Find coastal areas with house prices below the median
+low_price_coastal_areas = coastal_df[coastal_df['median_house_value'] < median_house_value_coastal]
+
+# Analyze factors that might explain low prices
+factors = low_price_coastal_areas[['housing_median_age', 'total_rooms', 'total_bedrooms', 'population', 'households', 'median_income']].describe()
+
+# Store the result
+result = {
+    'median_house_value_coastal': median_house_value_coastal,
+    'low_price_coastal_areas_count': len(low_price_coastal_areas),
+    'factors': factors
+}
+
+result","Coastal areas with relatively low house prices, despite their proximity to the ocean, have a median house value of $219,400. There are 3,357 such areas identified. Factors that might explain the lower prices include:
+
+1. **Older Housing Stock**: The average housing median age is 31 years, indicating that many homes may be older and potentially less desirable or in need of renovation.
+2. **Lower Median Income**: The median income in these areas is relatively low, with an average of $3,124.59, which could limit the purchasing power of residents and keep house prices down.
+3. **Smaller Household Sizes**: The average number of households is 483, suggesting smaller communities that might not attract higher prices due to limited demand.
+4. **Varied Total Rooms**: The total number of rooms in homes varies widely, which might indicate a mix of smaller, less expensive homes contributing to the lower median house value.
+
+These factors combined suggest that economic and housing characteristics, such as older homes and lower income levels, contribute to the relatively low house prices in these coastal areas."
+housing,Identify areas with similar median income levels but significantly different median house value. What factors might explain these differences?,"import pandas as pd
+
+# Load the dataset
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/housing.csv')
+
+# Handle missing values
+df = df.dropna()
+
+# Group by median income and calculate the mean and standard deviation of median house value
+income_groups = df.groupby('median_income')['median_house_value'].agg(['mean', 'std']).reset_index()
+
+# Identify income groups with similar median income but significantly different house values
+# We will consider a significant difference if the standard deviation is greater than a threshold, e.g., 50000
+threshold = 50000
+significant_diff = income_groups[income_groups['std'] > threshold]
+
+# Merge back with the original dataframe to analyze other factors
+merged_df = pd.merge(df, significant_diff[['median_income']], on='median_income')
+
+# Analyze other factors that might explain the differences
+factors = merged_df.groupby('median_income').agg({
+    'housing_median_age': 'mean',
+    'total_rooms': 'mean',
+    'total_bedrooms': 'mean',
+    'population': 'mean',
+    'households': 'mean',
+    'ocean_proximity': lambda x: x.mode()[0]  # Most common ocean proximity
+}).reset_index()
+
+# Combine the results
+result = pd.merge(significant_diff, factors, on='median_income')
+result","Areas with similar median income levels but significantly different median house values can be identified by comparing rows with close median income values but differing house values. For example:
+
+- Row 682 and Row 681 both have high median incomes (6.4865 and 6.4232, respectively), but their median house values differ significantly (327,200 vs. 337,900). The difference in house values could be attributed to their ocean proximity, with Row 681 being closer to the ocean (""<1H OCEAN"") compared to Row 682 (""INLAND"").
+
+Factors that might explain these differences include:
+- **Proximity to the ocean**: Properties closer to the ocean often have higher values due to desirable locations.
+- **Local amenities and infrastructure**: Areas with better schools, transportation, and facilities may have higher house values.
+- **Environmental factors**: Areas with better climate or less pollution might attract higher house values.
+- **Market demand and supply**: Variations in local housing demand and supply can lead to differences in house values despite similar income levels."
+vgsales,What is the total global sales across all video games in the dataset?,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/custom_dataset.csv')
+
+# Calculate the total global sales
+total_global_sales = df['Global_Sales'].sum()
+
+# Store the result
+result = total_global_sales","The total global sales across all video games in the dataset is 5,338.63 million units."
+vgsales,Which platform has the most games in the dataset?,"import pandas as pd
+
+# Load the dataset
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/custom_dataset.csv')
+
+# Count the number of games per platform
+platform_counts = df['Platform'].value_counts()
+
+# Get the platform with the most games
+most_games_platform = platform_counts.idxmax()
+
+result = most_games_platform",The platform with the most games in the dataset is DS.
+vgsales,What are the top 5 best-selling video games of all time by global sales?,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/custom_dataset.csv')
+
+# Drop rows with missing values in 'Global_Sales'
+df = df.dropna(subset=['Global_Sales'])
+
+# Sort the DataFrame by 'Global_Sales' in descending order and select the top 5
+top_5_best_selling = df.sort_values(by='Global_Sales', ascending=False).head(5)
+
+# Select relevant columns for the result
+result = top_5_best_selling[['Name', 'Platform', 'Year', 'Genre', 'Publisher', 'Global_Sales']]","The top 5 best-selling video games of all time by global sales are:
+
+1. Wii Sports (Wii) - 82.74 million copies
+2. Wii Sports Resort (Wii) - 33.00 million copies
+3. New Super Mario Bros. Wii (Wii) - 28.62 million copies
+4. Nintendogs (DS) - 24.76 million copies
+5. Pokemon Gold/Pokemon Silver (GB) - 23.10 million copies"
+vgsales,How do average global sales vary across different genres?,"import pandas as pd
+
+# Load the dataset
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/custom_dataset.csv')
+
+# Drop rows with missing values in 'Genre' or 'Global_Sales'
+df = df.dropna(subset=['Genre', 'Global_Sales'])
+
+# Calculate the average global sales for each genre
+average_global_sales_by_genre = df.groupby('Genre')['Global_Sales'].mean().reset_index()
+
+# Store the result
+result = average_global_sales_by_genre","Average global sales vary across different genres, with the highest sales in the Platform genre (0.811145) and Shooter genre (0.805670). Role-Playing (0.638697) and Sports (0.580292) also have relatively high average sales. The genres with the lowest average sales are Adventure (0.189364) and Strategy (0.271460). Other genres like Racing (0.565675), Action (0.527039), Simulation (0.508896), Fighting (0.501725), Misc (0.463642), and Puzzle (0.372709) fall in between these extremes."
+vgsales,"Which publisher has the highest total global sales, and how do their sales break down by region (NA, EU, JP, Other)?","import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/custom_dataset.csv')
+
+# Drop rows with missing values in relevant columns
+df = df.dropna(subset=['Publisher', 'Global_Sales', 'NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales'])
+
+# Group by Publisher and sum the sales
+publisher_sales = df.groupby('Publisher').sum(numeric_only=True)
+
+# Find the publisher with the highest total global sales
+top_publisher = publisher_sales['Global_Sales'].idxmax()
+
+# Get the sales breakdown for the top publisher
+sales_breakdown = publisher_sales.loc[top_publisher, ['NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales', 'Global_Sales']]
+
+# Prepare the result
+result = f""Publisher with highest global sales: {top_publisher}\nSales Breakdown:\n{sales_breakdown}""","The publisher with the highest total global sales is Nintendo, with a total of 1032.74 million units sold globally. The sales breakdown by region is as follows: 446.40 million units in North America (NA), 258.06 million units in Europe (EU), 269.74 million units in Japan (JP), and 58.44 million units in other regions."
+vgsales,How have total global video game sales changed over the years? Show the trend by year.,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/custom_dataset.csv')
+
+# Drop rows with missing 'Year' or 'Global_Sales' values
+df = df.dropna(subset=['Year', 'Global_Sales'])
+
+# Group by 'Year' and sum 'Global_Sales'
+sales_trend = df.groupby('Year')['Global_Sales'].sum().reset_index()
+
+# Sort by 'Year'
+sales_trend = sales_trend.sort_values(by='Year')
+
+# Store the result
+result = sales_trend","Global video game sales have experienced significant fluctuations over the years. Starting from 1980, sales initially increased, peaking in 1981, then declined until 1985. A notable increase occurred from 1986, with sales reaching a new peak in 1999. The early 2000s saw a rapid rise, with sales peaking in 2009. After 2009, sales began to decline steadily, with a sharp drop after 2015, reaching minimal levels by 2017 and 2020. Overall, the trend shows periods of growth followed by declines, with the highest sales occurring in the late 2000s."
+vgsales,Identify genres that perform disproportionately well in Japan compared to North America. What cultural or market factors might explain these differences?,"import pandas as pd
+
+# Load the dataset
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/custom_dataset.csv')
+
+# Drop rows with missing values in relevant columns
+df = df.dropna(subset=['NA_Sales', 'JP_Sales', 'Genre'])
+
+# Calculate total sales by genre for NA and JP
+genre_sales = df.groupby('Genre').agg({'NA_Sales': 'sum', 'JP_Sales': 'sum'})
+
+# Calculate the ratio of JP sales to NA sales
+genre_sales['JP_to_NA_Ratio'] = genre_sales['JP_Sales'] / genre_sales['NA_Sales']
+
+# Identify genres with a JP to NA sales ratio greater than 1
+disproportionate_genres = genre_sales[genre_sales['JP_to_NA_Ratio'] > 1]
+
+# Store the result
+result = disproportionate_genres[['JP_to_NA_Ratio']]
+
+# Cultural or market factors explanation (as a string)
+cultural_factors = (
+    ""Genres that perform disproportionately well in Japan compared to North America ""
+    ""often include those that align with Japanese cultural preferences, such as RPGs ""
+    ""and certain types of strategy games. Japan has a strong tradition of role-playing ""
+    ""games, and these games often feature storytelling and character development that ""
+    ""resonate with Japanese audiences. Additionally, the popularity of handheld gaming ""
+    ""devices in Japan can influence the success of certain genres that are well-suited ""
+    ""to portable play. Market factors such as the presence of local developers and ""
+    ""publishers who specialize in these genres can also contribute to their success.""
+)
+
+# Combine the result with the explanation
+result = (result, cultural_factors)","Role-Playing games perform disproportionately well in Japan compared to North America. This can be attributed to cultural preferences in Japan, where there is a strong tradition of role-playing games that emphasize storytelling and character development. The popularity of handheld gaming devices in Japan also supports the success of genres suited to portable play. Additionally, local developers and publishers specializing in these genres contribute to their success in the Japanese market."
+vgsales,Find platforms that had a rapid rise and decline in game releases. What does this suggest about the console lifecycle?,"import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/custom_dataset.csv')
+
+# Drop rows with missing 'Year' or 'Platform' values
+df = df.dropna(subset=['Year', 'Platform'])
+
+# Group by 'Platform' and 'Year' to count the number of games released each year for each platform
+platform_year_counts = df.groupby(['Platform', 'Year']).size().reset_index(name='Game_Count')
+
+# Find platforms with a rapid rise and decline in game releases
+# Define a rapid rise and decline as having a peak followed by a significant drop
+platforms_with_rapid_changes = []
+
+for platform in platform_year_counts['Platform'].unique():
+    platform_data = platform_year_counts[platform_year_counts['Platform'] == platform]
+    game_counts = platform_data['Game_Count'].values
+    if len(game_counts) > 2:
+        # Check for a peak followed by a decline
+        for i in range(1, len(game_counts) - 1):
+            if game_counts[i] > game_counts[i - 1] and game_counts[i] > game_counts[i + 1]:
+                platforms_with_rapid_changes.append(platform)
+                break
+
+# Remove duplicates
+platforms_with_rapid_changes = list(set(platforms_with_rapid_changes))
+
+# Create a DataFrame to summarize the findings
+result = pd.DataFrame(platforms_with_rapid_changes, columns=['Platform'])
+
+# Add a suggestion about the console lifecycle
+suggestion = ""Platforms with a rapid rise and decline in game releases suggest a short lifecycle, possibly due to technological advancements or market competition.""
+
+result['Suggestion'] = suggestion","The platforms that experienced a rapid rise and decline in game releases include PS2, XB, PS3, XOne, 2600, PS, WiiU, DC, GB, GC, Wii, DS, SAT, X360, PC, PSV, N64, NES, PS4, GBA, PSP, 3DS, and SNES. This pattern suggests that these platforms followed a typical console lifecycle, where there is an initial surge in game releases as the platform gains popularity, followed by a decline as the platform becomes outdated or is replaced by newer technology."
+vgsales,"Identify publishers whose games have high NA sales but low JP sales, and vice versa. What strategic differences might explain these regional patterns?","import pandas as pd
+
+# Load the dataset
+df = pd.read_csv('/Users/andrewyanez/ECE-272C/ECE157C_272C_HW1/custom_dataset.csv')
+
+# Handle missing values by filling with empty strings
+df['Publisher'] = df['Publisher'].fillna('Unknown')
+
+# Define thresholds for high and low sales
+high_sales_threshold = 1.0  # Example threshold for high sales
+low_sales_threshold = 0.1   # Example threshold for low sales
+
+# Identify publishers with high NA sales but low JP sales
+high_na_low_jp = df[(df['NA_Sales'] > high_sales_threshold) & (df['JP_Sales'] < low_sales_threshold)]
+publishers_high_na_low_jp = high_na_low_jp['Publisher'].dropna().unique()
+
+# Identify publishers with high JP sales but low NA sales
+high_jp_low_na = df[(df['JP_Sales'] > high_sales_threshold) & (df['NA_Sales'] < low_sales_threshold)]
+publishers_high_jp_low_na = high_jp_low_na['Publisher'].dropna().unique()
+
+# Create a DataFrame summarizing the findings
+result = pd.DataFrame({
+    'High NA, Low JP': [', '.join(map(str, publishers_high_na_low_jp))],
+    'High JP, Low NA': [', '.join(map(str, publishers_high_jp_low_na))]
+})
+
+result","Publishers with high North American sales but low Japanese sales include Ubisoft, Microsoft Game Studios, and Activision. Conversely, publishers with high Japanese sales but low North American sales include Enix Corporation, Eidos Interactive, and Namco Bandai Games.
+
+Strategic differences that might explain these regional patterns could include:
+
+1. **Cultural Preferences**: Games from Ubisoft, Microsoft, and Activision may cater more to Western tastes, focusing on genres and themes popular in North America. Meanwhile, Enix, Eidos, and Namco Bandai might produce games that align more closely with Japanese cultural preferences.
+
+2. **Marketing Strategies**: These publishers may prioritize marketing efforts in their respective strong regions, leading to higher sales there.
+
+3. **Platform Focus**: The choice of gaming platforms (e.g., consoles popular in one region over another) could influence sales patterns.
+
+4. **Localization Efforts**: The extent and quality of localization might affect a game's appeal in different regions, with some publishers investing more in localization for specific markets."
