@@ -4,7 +4,7 @@ from langgraph.graph import StateGraph, END
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
-from nodes import (
+from HW2.project.nodes import (
     codegen_node,
     execute_node,
     evaluate_node,

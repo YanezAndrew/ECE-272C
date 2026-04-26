@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
-from agent import agent
+from HW2.project.agent import agent
 
 
 def run_agent(question: str, csv_path: str) -> dict:
