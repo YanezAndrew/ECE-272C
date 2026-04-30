@@ -99,7 +99,7 @@ if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
     # --- Fixed dataset ---
-    housing_csv = os.path.join(script_dir, "housing.csv")
+    housing_csv = os.path.join(script_dir, "datasets", "housing.csv")
     all_rows = run_all_questions(HOUSING_QUESTIONS, housing_csv, "housing")
 
     # --- Custom dataset (Video Game Sales) ---
@@ -117,7 +117,7 @@ if __name__ == "__main__":
         "Find platforms that had a rapid rise and decline in game releases. What does this suggest about the console lifecycle?",
         "Identify publishers whose games have high NA sales but low JP sales, and vice versa. What strategic differences might explain these regional patterns?",
     ]
-    custom_csv = os.path.join(script_dir, "custom_dataset.csv")
+    custom_csv = os.path.join(script_dir, "datasets", "custom_dataset.csv")
     all_rows += run_all_questions(CUSTOM_QUESTIONS, custom_csv, "vgsales")
 
     # Write results
