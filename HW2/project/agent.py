@@ -14,10 +14,11 @@ from HW2.project.nodes import (
 )
 
 
-def build_initial_state(question: str, csv_path: str) -> dict:
+def build_initial_state(question: str, csv_path: str, previous_result=None) -> dict:
     return {
         "question": question,
         "csv_path": csv_path,
+        "previous_result": previous_result,
         "generated_code": "",
         "execution_result": None,
         "execution_error": None,

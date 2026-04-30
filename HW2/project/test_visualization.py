@@ -5,22 +5,21 @@ import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
-from HW2.project.nodes import visualization_node
+from HW2.project.nodes import visualization_node, ExecutionResult
 
 
 def run_test(name: str, question: str, execution_result):
     print(f"\n{'='*60}")
     print(f"TEST: {name}")
     print(f"Question: {question}")
-    print(f"Result type: {type(execution_result).__name__}")
-    if hasattr(execution_result, "shape"):
-        print(f"Result shape: {execution_result.shape}")
-    print(f"Result preview:\n{str(execution_result)[:300]}")
+    er = ExecutionResult(execution_result, question)
+    print(f"Result type: {er.data_type}")
+    print(f"Result preview:\n{str(er.data)[:300]}")
     print("-" * 40)
 
     state = {
         "question": question,
-        "execution_result": execution_result,
+        "execution_result": er,
     }
     out = visualization_node(state)
 

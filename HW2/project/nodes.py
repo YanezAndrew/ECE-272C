@@ -11,31 +11,93 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 
-def _get_csv_info(csv_path: str) -> str:
-    """Read first few rows of a CSV to provide column info to the LLM."""
-    try:
-        import pandas as _pd
-        df = _pd.read_csv(csv_path, nrows=5)
-        cols = list(df.columns)
-        dtypes = df.dtypes.to_dict()
-        info = f"Columns: {cols}\nDtypes: {dtypes}\nSample (first 3 rows):\n{df.head(3).to_string()}"
+class ExecutionResult:
+    """Structured representation of a single execution step's output."""
+
+    def __init__(self, data, question: str = ""):
+        self.data = data
+        self.question = question
+        self.data_type = self._infer_type(data)
+
+    def _infer_type(self, data) -> str:
+        if isinstance(data, pd.DataFrame):
+            return "dataframe"
+        if isinstance(data, pd.Series):
+            return "series"
+        if isinstance(data, (int, float)):
+            return "scalar"
+        return "string"
+
+    @property
+    def is_empty(self) -> bool:
+        if isinstance(self.data, (pd.DataFrame, pd.Series)):
+            return self.data.empty
+        return self.data is None
+
+    def describe(self) -> str:
+        """Text summary used in LLM prompts."""
+        info = f"Type: {self.data_type}"
+        if isinstance(self.data, pd.DataFrame):
+            info += f"\nShape: {self.data.shape}"
+            info += f"\nColumns: {list(self.data.columns)}"
+        elif isinstance(self.data, pd.Series):
+            info += f"\nLength: {len(self.data)}"
+            info += f"\nName: {self.data.name}"
+        info += f"\nSample:\n{str(self.data)[:500]}"
         return info
+
+    def to_json(self) -> str:
+        """Serialize for the frontend."""
+        if isinstance(self.data, pd.DataFrame):
+            return self.data.to_json(orient="records")
+        if isinstance(self.data, pd.Series):
+            return self.data.to_json()
+        return str(self.data)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _get_csv_info(csv_path: str) -> str:
+    try:
+        df = pd.read_csv(csv_path, nrows=5)
+        return (
+            f"Columns: {list(df.columns)}\n"
+            f"Dtypes: {df.dtypes.to_dict()}\n"
+            f"Sample (first 3 rows):\n{df.head(3).to_string()}"
+        )
     except Exception:
         return ""
 
 
+# ---------------------------------------------------------------------------
+# Nodes
+# ---------------------------------------------------------------------------
+
 def codegen_node(state: dict) -> dict:
-    """Generate Python/pandas code to answer the question."""
     question = state["question"]
     csv_path = state["csv_path"]
     csv_info = _get_csv_info(csv_path)
+    previous_result: ExecutionResult | None = state.get("previous_result")
+
+    previous_section = ""
+    if previous_result is not None:
+        previous_section = (
+            f"\nThe previous execution result is available as `previous_result`:\n"
+            f"{previous_result.describe()}\n\n"
+            "If the question refers to the previous result (e.g. 'show top 5', "
+            "'filter this', 'sort by X'), operate on `previous_result` directly "
+            "instead of re-reading the CSV.\n"
+        )
 
     system_prompt = (
         "You are a Python data analyst. Write Python code using pandas to answer "
         "the user's question about a CSV dataset.\n\n"
-        f"Dataset info:\n{csv_info}\n\n"
+        f"Dataset info:\n{csv_info}\n"
+        f"{previous_section}\n"
         "Rules:\n"
-        f"- Read the CSV from: '{csv_path}'\n"
+        f"- Read the CSV from: '{csv_path}' only if needed (not for follow-up questions).\n"
         "- Store the final output in a variable called `result`.\n"
         "- `result` should be a simple, printable value: a string, number, "
         "pandas DataFrame, or Series.\n"
@@ -54,7 +116,6 @@ def codegen_node(state: dict) -> dict:
     ])
 
     code = response.content.strip()
-    # Strip markdown code fences if present
     code = re.sub(r"^```(?:python)?\n?", "", code)
     code = re.sub(r"\n?```$", "", code)
 
@@ -64,9 +125,13 @@ def codegen_node(state: dict) -> dict:
 
 
 def execute_node(state: dict) -> dict:
-    """Execute the generated code and capture the result."""
     code = state["generated_code"]
+    previous_result: ExecutionResult | None = state.get("previous_result")
+
     env = {}
+    if previous_result is not None:
+        env["previous_result"] = previous_result.data
+
     try:
         exec(code, env)
         result = env.get("result")
@@ -77,22 +142,15 @@ def execute_node(state: dict) -> dict:
                 "You MUST assign the final output to a variable named `result`."
             )
         else:
-            # Check if result is an empty DataFrame or Series
-            empty = False
-            try:
-                import pandas as _pd
-                if isinstance(result, (_pd.DataFrame, _pd.Series)) and result.empty:
-                    empty = True
-            except Exception:
-                pass
-            if empty:
+            er = ExecutionResult(result, state["question"])
+            if er.is_empty:
                 state["execution_result"] = None
                 state["execution_error"] = (
                     "The `result` variable is an empty DataFrame/Series. "
                     "Adjust the code logic so `result` contains meaningful data."
                 )
             else:
-                state["execution_result"] = result
+                state["execution_result"] = er
                 state["execution_error"] = None
     except Exception as e:
         state["execution_result"] = None
@@ -101,9 +159,8 @@ def execute_node(state: dict) -> dict:
 
 
 def evaluate_node(state: dict) -> dict:
-    """Evaluate whether the execution result correctly answers the question."""
     question = state["question"]
-    execution_result = state["execution_result"]
+    execution_result: ExecutionResult | None = state["execution_result"]
     execution_error = state["execution_error"]
     generated_code = state["generated_code"]
 
@@ -115,11 +172,10 @@ def evaluate_node(state: dict) -> dict:
             "Return ONLY the word FAIL."
         )
     else:
-        result_str = str(execution_result)[:2000]
         evaluation_input = (
             f"Question: {question}\n\n"
             f"Generated code:\n{generated_code}\n\n"
-            f"Execution result:\n{result_str}\n\n"
+            f"Execution result:\n{execution_result.describe()}\n\n"
             "Evaluate whether the execution produced a non-empty, reasonable result "
             "that addresses the question. A result is PASS if it contains relevant data, "
             "even if the analysis could be more thorough. FAIL only if the result is "
@@ -138,25 +194,31 @@ def evaluate_node(state: dict) -> dict:
 
 
 def retry_codegen_node(state: dict) -> dict:
-    """Re-generate code after a failure, including error feedback."""
     question = state["question"]
     csv_path = state["csv_path"]
     previous_code = state["generated_code"]
     error = state.get("execution_error") or "Result was evaluated as incorrect."
     csv_info = _get_csv_info(csv_path)
+    previous_result: ExecutionResult | None = state.get("previous_result")
+
+    previous_section = ""
+    if previous_result is not None:
+        previous_section = (
+            f"\nThe previous execution result is available as `previous_result`:\n"
+            f"{previous_result.describe()}\n"
+        )
 
     system_prompt = (
         "You are a Python data analyst. Your previous code had an issue. "
         "Fix it and produce corrected code.\n\n"
-        f"Dataset info:\n{csv_info}\n\n"
+        f"Dataset info:\n{csv_info}\n"
+        f"{previous_section}\n"
         "Rules:\n"
-        f"- Read the CSV from: '{csv_path}'\n"
+        f"- Read the CSV from: '{csv_path}' only if needed.\n"
         "- Store the final output in a variable called `result`.\n"
         "- `result` should be a simple, printable value: a string, number, "
         "pandas DataFrame, or Series.\n"
         "- `result` must NEVER be empty or None. Always produce meaningful output.\n"
-        "- For analytical questions, compute relevant statistics and store a "
-        "DataFrame or descriptive string summarizing the findings in `result`.\n"
         "- Do NOT use print(). Do NOT use plt.show(). Do NOT import matplotlib.\n"
         "- Only output the Python code. No markdown fences, no explanation.\n"
         "- Handle missing values (NaN) gracefully using dropna() or fillna() as needed.\n"
@@ -185,9 +247,13 @@ def retry_codegen_node(state: dict) -> dict:
 
 
 def respond_node(state: dict) -> dict:
-    """Generate a natural language final answer from the execution result."""
     question = state["question"]
-    execution_result = state["execution_result"]
+    execution_result: ExecutionResult | None = state["execution_result"]
+    execution_error = state.get("execution_error")
+
+    if execution_error or execution_result is None:
+        state["final_answer"] = f"I was unable to compute an answer: {execution_error}"
+        return state
 
     response = llm.invoke([
         SystemMessage(
@@ -199,7 +265,7 @@ def respond_node(state: dict) -> dict:
         HumanMessage(
             content=(
                 f"Question: {question}\n\n"
-                f"Execution result:\n{execution_result}\n\n"
+                f"Execution result:\n{execution_result.describe()}\n\n"
                 "Provide a clear final answer."
             )
         ),
@@ -210,22 +276,13 @@ def respond_node(state: dict) -> dict:
 
 
 def visualization_node(state: dict) -> dict:
-    """Decide whether to visualize the execution result and generate Plotly code if so."""
     question = state["question"]
-    execution_result = state.get("execution_result")
+    execution_result: ExecutionResult | None = state.get("execution_result")
 
     if execution_result is None:
         state["visualization_figure"] = None
         state["visualization_error"] = None
         return state
-
-    result_str = str(execution_result)[:3000]
-    result_type = type(execution_result).__name__
-    shape_info = ""
-    if hasattr(execution_result, "shape"):
-        shape_info += f"\nShape: {execution_result.shape}"
-    if hasattr(execution_result, "columns"):
-        shape_info += f"\nColumns: {list(execution_result.columns)}"
 
     system_prompt = (
         "You are a data visualization expert. Given a user question and its computed result, "
@@ -238,8 +295,8 @@ def visualization_node(state: dict) -> dict:
         "Visualization is NOT useful for single scalar values or simple factual lookups.\n\n"
         "If you decide to visualize, write complete Python code that:\n"
         "- Imports plotly.express as px OR plotly.graph_objects as go\n"
-        "- Assumes the execution result is already available as a variable named `result` "
-        "(a pandas DataFrame, Series, number, or string — use whatever it is)\n"
+        "- Assumes the data is already available as a variable named `result` "
+        "(a pandas DataFrame, Series, number, or string)\n"
         "- Creates a Plotly figure stored in a variable named `fig`\n"
         "- Sets a descriptive title and appropriate axis labels\n"
         "- Does NOT call fig.show()\n"
@@ -251,8 +308,7 @@ def visualization_node(state: dict) -> dict:
 
     user_prompt = (
         f"Question: {question}\n\n"
-        f"Result type: {result_type}{shape_info}\n\n"
-        f"Execution result:\n{result_str}"
+        f"Execution result:\n{execution_result.describe()}"
     )
 
     response = llm.invoke([
@@ -294,8 +350,8 @@ def visualization_node(state: dict) -> dict:
         state["visualization_error"] = "LLM decided to visualize but produced no code."
         return state
 
-    import plotly  # noqa: F401 — ensure plotly is importable before exec
-    env = {"result": execution_result}
+    import plotly  # noqa: F401
+    env = {"result": execution_result.data}
     try:
         exec(code, env)
         fig = env.get("fig")
