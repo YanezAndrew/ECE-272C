@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
-from HW2.project.agent import agent
+from HW2.project.agent import agent, build_initial_state
 
 
 def run_agent(question: str, csv_path: str) -> dict:
@@ -18,22 +18,7 @@ def run_agent(question: str, csv_path: str) -> dict:
             "final_answer": str,
         }
     """
-    initial_state = {
-        "question": question,
-        "csv_path": csv_path,
-        "generated_code": "",
-        "execution_result": None,
-        "execution_error": None,
-        "evaluation": "",
-        "final_answer": "",
-        "retry_count": 0,
-        "visualization_figure": None,
-        "visualization_error": None,
-        "visualization_decision": False,
-        "visualization_chart_type": "none",
-    }
-
-    result_state = agent.invoke(initial_state)
+    result_state = agent.invoke(build_initial_state(question, csv_path))
 
     return {
         "generated_code": result_state.get("generated_code", ""),

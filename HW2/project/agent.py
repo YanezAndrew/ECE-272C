@@ -14,6 +14,23 @@ from HW2.project.nodes import (
 )
 
 
+def build_initial_state(question: str, csv_path: str) -> dict:
+    return {
+        "question": question,
+        "csv_path": csv_path,
+        "generated_code": "",
+        "execution_result": None,
+        "execution_error": None,
+        "evaluation": "",
+        "final_answer": "",
+        "retry_count": 0,
+        "visualization_figure": None,
+        "visualization_error": None,
+        "visualization_decision": False,
+        "visualization_chart_type": "none",
+    }
+
+
 def should_retry(state: dict) -> str:
     """Route after evaluation: retry once on FAIL, otherwise respond."""
     if state["evaluation"] == "FAIL" and state.get("retry_count", 0) < 1:
