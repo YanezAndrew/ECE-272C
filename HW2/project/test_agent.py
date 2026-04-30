@@ -27,6 +27,10 @@ def run_agent(question: str, csv_path: str) -> dict:
         "evaluation": "",
         "final_answer": "",
         "retry_count": 0,
+        "visualization_figure": None,
+        "visualization_error": None,
+        "visualization_decision": False,
+        "visualization_chart_type": "none",
     }
 
     result_state = agent.invoke(initial_state)
@@ -36,6 +40,10 @@ def run_agent(question: str, csv_path: str) -> dict:
         "execution_result": result_state.get("execution_result"),
         "evaluation": result_state.get("evaluation", "FAIL"),
         "final_answer": result_state.get("final_answer", ""),
+        "visualization_figure": result_state.get("visualization_figure"),
+        "visualization_decision": result_state.get("visualization_decision", False),
+        "visualization_chart_type": result_state.get("visualization_chart_type", "none"),
+        "visualization_error": result_state.get("visualization_error"),
     }
 
 

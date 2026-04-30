@@ -10,6 +10,7 @@ from HW2.project.nodes import (
     evaluate_node,
     retry_codegen_node,
     respond_node,
+    visualization_node,
 )
 
 
@@ -30,6 +31,7 @@ def build_agent():
     graph.add_node("evaluate", evaluate_node)
     graph.add_node("retry_codegen", retry_codegen_node)
     graph.add_node("respond", respond_node)
+    graph.add_node("visualize", visualization_node)
 
     # Set entry point
     graph.set_entry_point("codegen")
@@ -51,8 +53,9 @@ def build_agent():
     # After retry, execute again
     graph.add_edge("retry_codegen", "execute")
 
-    # Respond is the final node
-    graph.add_edge("respond", END)
+    # After respond, run visualization (optional step before END)
+    graph.add_edge("respond", "visualize")
+    graph.add_edge("visualize", END)
 
     return graph.compile()
 

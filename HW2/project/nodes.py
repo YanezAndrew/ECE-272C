@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import pandas as pd
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -205,4 +206,107 @@ def respond_node(state: dict) -> dict:
     ])
 
     state["final_answer"] = response.content.strip()
+    return state
+
+
+def visualization_node(state: dict) -> dict:
+    """Decide whether to visualize the execution result and generate Plotly code if so."""
+    question = state["question"]
+    execution_result = state.get("execution_result")
+
+    if execution_result is None:
+        state["visualization_figure"] = None
+        state["visualization_error"] = None
+        return state
+
+    result_str = str(execution_result)[:3000]
+    result_type = type(execution_result).__name__
+    shape_info = ""
+    if hasattr(execution_result, "shape"):
+        shape_info += f"\nShape: {execution_result.shape}"
+    if hasattr(execution_result, "columns"):
+        shape_info += f"\nColumns: {list(execution_result.columns)}"
+
+    system_prompt = (
+        "You are a data visualization expert. Given a user question and its computed result, "
+        "decide whether a Plotly chart would add meaningful value.\n\n"
+        "Visualization IS useful when the result involves:\n"
+        "- Comparisons between categories or groups\n"
+        "- Trends over time (time-series data)\n"
+        "- Distributions of numerical values\n"
+        "- Proportions or part-to-whole relationships\n\n"
+        "Visualization is NOT useful for single scalar values or simple factual lookups.\n\n"
+        "If you decide to visualize, write complete Python code that:\n"
+        "- Imports plotly.express as px OR plotly.graph_objects as go\n"
+        "- Assumes the execution result is already available as a variable named `result` "
+        "(a pandas DataFrame, Series, number, or string — use whatever it is)\n"
+        "- Creates a Plotly figure stored in a variable named `fig`\n"
+        "- Sets a descriptive title and appropriate axis labels\n"
+        "- Does NOT call fig.show()\n"
+        "- Does NOT re-read the CSV or recompute the data\n\n"
+        "Respond with ONLY a valid JSON object — no markdown fences, no extra text:\n"
+        '{"visualize": true|false, "chart_type": "bar|line|scatter|histogram|pie|box|none", '
+        '"reasoning": "<one sentence>", "code": "<python code or empty string>"}'
+    )
+
+    user_prompt = (
+        f"Question: {question}\n\n"
+        f"Result type: {result_type}{shape_info}\n\n"
+        f"Execution result:\n{result_str}"
+    )
+
+    response = llm.invoke([
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_prompt),
+    ])
+
+    raw = response.content.strip()
+    raw = re.sub(r"^```(?:json)?\n?", "", raw)
+    raw = re.sub(r"\n?```$", "", raw)
+
+    try:
+        decision = json.loads(raw)
+    except Exception:
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if match:
+            try:
+                decision = json.loads(match.group())
+            except Exception:
+                state["visualization_figure"] = None
+                state["visualization_error"] = f"Failed to parse LLM response: {raw[:200]}"
+                return state
+        else:
+            state["visualization_figure"] = None
+            state["visualization_error"] = f"Failed to parse LLM response: {raw[:200]}"
+            return state
+
+    state["visualization_decision"] = decision.get("visualize", False)
+    state["visualization_chart_type"] = decision.get("chart_type", "none")
+
+    if not decision.get("visualize", False):
+        state["visualization_figure"] = None
+        state["visualization_error"] = None
+        return state
+
+    code = decision.get("code", "").strip()
+    if not code:
+        state["visualization_figure"] = None
+        state["visualization_error"] = "LLM decided to visualize but produced no code."
+        return state
+
+    import plotly  # noqa: F401 — ensure plotly is importable before exec
+    env = {"result": execution_result}
+    try:
+        exec(code, env)
+        fig = env.get("fig")
+        if fig is None:
+            state["visualization_figure"] = None
+            state["visualization_error"] = "Visualization code did not assign a variable named `fig`."
+        else:
+            state["visualization_figure"] = fig.to_json()
+            state["visualization_error"] = None
+    except Exception as e:
+        state["visualization_figure"] = None
+        state["visualization_error"] = str(e)
+
     return state
