@@ -6,7 +6,7 @@ import tempfile
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 
 # Project root is three levels up from backend/
@@ -25,6 +25,7 @@ app.add_middleware(
 )
 
 DATASETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "datasets")
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
 
 # upload_id -> temp file path for user-uploaded CSVs
 _uploaded_files: dict[str, str] = {}
@@ -57,6 +58,11 @@ class QueryRequest(BaseModel):
     csv_path: str | None = None         # absolute server path
     upload_id: str | None = None        # from /upload
     dataset: str | None = None          # filename inside datasets/
+
+
+@app.get("/")
+def serve_frontend():
+    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
 
 @app.get("/health")

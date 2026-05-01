@@ -99,12 +99,15 @@ def codegen_node(state: dict) -> dict:
         "Rules:\n"
         f"- Read the CSV from: '{csv_path}' only if needed (not for follow-up questions).\n"
         "- Store the final output in a variable called `result`.\n"
-        "- `result` should be a simple, printable value: a string, number, "
-        "pandas DataFrame, or Series.\n"
         "- `result` must NEVER be empty or None. Always produce meaningful output.\n"
-        "- For analytical questions, compute relevant statistics and store a "
-        "DataFrame or descriptive string summarizing the findings in `result`.\n"
-        "- Do NOT use print(). Do NOT use plt.show(). Do NOT import matplotlib.\n"
+        "- For comparison or ranking questions (e.g. 'which has the highest/lowest', "
+        "'how does X vary across Y'), store the FULL grouped DataFrame in `result`, "
+        "not just the single winning value. This allows downstream visualization.\n"
+        "- For simple factual lookups (e.g. 'how many rows', 'what is the average'), "
+        "a scalar or string is fine.\n"
+        "- Do NOT use print(). Do NOT import matplotlib. Do NOT create any plots or charts.\n"
+        "- If the user asks to 'plot', 'visualize', or 'chart' something, ignore that part — "
+        "just return the relevant data as `result`. A separate component handles visualization.\n"
         "- Only output the Python code. No markdown fences, no explanation.\n"
         "- Handle missing values (NaN) gracefully using dropna() or fillna() as needed.\n"
         "- Use ONLY the exact column names listed above. Do NOT guess column names.\n"
@@ -216,9 +219,9 @@ def retry_codegen_node(state: dict) -> dict:
         "Rules:\n"
         f"- Read the CSV from: '{csv_path}' only if needed.\n"
         "- Store the final output in a variable called `result`.\n"
-        "- `result` should be a simple, printable value: a string, number, "
-        "pandas DataFrame, or Series.\n"
         "- `result` must NEVER be empty or None. Always produce meaningful output.\n"
+        "- For comparison or ranking questions, store the FULL grouped DataFrame "
+        "in `result`, not just the single winning value.\n"
         "- Do NOT use print(). Do NOT use plt.show(). Do NOT import matplotlib.\n"
         "- Only output the Python code. No markdown fences, no explanation.\n"
         "- Handle missing values (NaN) gracefully using dropna() or fillna() as needed.\n"
@@ -275,35 +278,60 @@ def respond_node(state: dict) -> dict:
     return state
 
 
+def _build_figure(data, chart_type: str, x_col: str, y_col: str, title: str):
+    import plotly.graph_objects as go
+
+    x = data[x_col].tolist() if x_col and x_col in data.columns else None
+    y = data[y_col].tolist() if y_col and y_col in data.columns else None
+
+    if chart_type == "bar":
+        fig = go.Figure(go.Bar(x=x, y=y))
+    elif chart_type == "line":
+        fig = go.Figure(go.Scatter(x=x, y=y, mode="lines"))
+    elif chart_type == "scatter":
+        fig = go.Figure(go.Scatter(x=x, y=y, mode="markers"))
+    elif chart_type == "histogram":
+        fig = go.Figure(go.Histogram(x=x))
+    elif chart_type == "box":
+        fig = go.Figure(go.Box(y=y))
+    elif chart_type == "pie":
+        fig = go.Figure(go.Pie(labels=x, values=y))
+    else:
+        return None
+
+    fig.update_layout(
+        title=title,
+        xaxis_title=x_col,
+        yaxis_title=y_col,
+    )
+    return fig
+
+
 def visualization_node(state: dict) -> dict:
     question = state["question"]
     execution_result: ExecutionResult | None = state.get("execution_result")
 
-    if execution_result is None:
+    if execution_result is None or not isinstance(execution_result.data, pd.DataFrame):
         state["visualization_figure"] = None
         state["visualization_error"] = None
         return state
 
+    columns = list(execution_result.data.columns)
+
     system_prompt = (
         "You are a data visualization expert. Given a user question and its computed result, "
-        "decide whether a Plotly chart would add meaningful value.\n\n"
+        "decide whether a chart would add meaningful value.\n\n"
         "Visualization IS useful when the result involves:\n"
         "- Comparisons between categories or groups\n"
-        "- Trends over time (time-series data)\n"
+        "- Trends over time\n"
         "- Distributions of numerical values\n"
         "- Proportions or part-to-whole relationships\n\n"
-        "Visualization is NOT useful for single scalar values or simple factual lookups.\n\n"
-        "If you decide to visualize, write complete Python code that:\n"
-        "- Imports plotly.express as px OR plotly.graph_objects as go\n"
-        "- Assumes the data is already available as a variable named `result` "
-        "(a pandas DataFrame, Series, number, or string)\n"
-        "- Creates a Plotly figure stored in a variable named `fig`\n"
-        "- Sets a descriptive title and appropriate axis labels\n"
-        "- Does NOT call fig.show()\n"
-        "- Does NOT re-read the CSV or recompute the data\n\n"
-        "Respond with ONLY a valid JSON object — no markdown fences, no extra text:\n"
-        '{"visualize": true|false, "chart_type": "bar|line|scatter|histogram|pie|box|none", '
-        '"reasoning": "<one sentence>", "code": "<python code or empty string>"}'
+        "Visualization is NOT useful for a single row or scalar value.\n\n"
+        f"The result is a DataFrame with columns: {columns}\n\n"
+        "Respond with ONLY a valid JSON object — no markdown, no extra text:\n"
+        '{"visualize": true|false, "chart_type": "bar|line|scatter|histogram|pie|box", '
+        '"x_col": "<column name or empty>", "y_col": "<column name or empty>", '
+        '"title": "<descriptive chart title>"}'
     )
 
     user_prompt = (
@@ -344,20 +372,17 @@ def visualization_node(state: dict) -> dict:
         state["visualization_error"] = None
         return state
 
-    code = decision.get("code", "").strip()
-    if not code:
-        state["visualization_figure"] = None
-        state["visualization_error"] = "LLM decided to visualize but produced no code."
-        return state
-
-    import plotly  # noqa: F401
-    env = {"result": execution_result.data}
     try:
-        exec(code, env)
-        fig = env.get("fig")
+        fig = _build_figure(
+            data=execution_result.data,
+            chart_type=decision.get("chart_type", "bar"),
+            x_col=decision.get("x_col", columns[0]),
+            y_col=decision.get("y_col", columns[-1]),
+            title=decision.get("title", question),
+        )
         if fig is None:
             state["visualization_figure"] = None
-            state["visualization_error"] = "Visualization code did not assign a variable named `fig`."
+            state["visualization_error"] = f"Unsupported chart type: {decision.get('chart_type')}"
         else:
             state["visualization_figure"] = fig.to_json()
             state["visualization_error"] = None
