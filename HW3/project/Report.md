@@ -6,20 +6,28 @@
 
 ## 1. Dataset Description
 
-**Source:**
-<!-- Where the dataset came from (Kaggle, UCI, etc.) -->
+**Source:** Los Angeles Open Data Portal — [LA Parking Citations](https://data.lacity.org/Transportation/Parking-Citations/wjz9-h9np) (sampled 20,000 rows via Socrata API, cleaned to 19,966 usable rows)
 
-**Rows / Columns:**
-<!-- e.g., 12,000 rows × 8 columns -->
+**Rows / Columns:** 19,966 rows × 16 columns
 
 **Key Columns:**
 
 | Column | Type | Description |
 |--------|------|-------------|
-| <!-- col --> | <!-- type --> | <!-- description --> |
+| issue_date | string | Date the citation was issued (YYYY-MM-DD) |
+| issue_time | float | Time as a 4-digit number (e.g., 1430 = 2:30 PM) |
+| rp_state_plate | string | State that issued the vehicle's license plate |
+| make | string | Vehicle make abbreviation (e.g., TOYT, HOND, FORD) |
+| body_style | string | Vehicle body style code (PA = passenger, PU = pickup, VN = van, etc.) |
+| color | string | Vehicle color code |
+| location | string | Street address where the citation was issued |
+| violation_code | string | Numeric/alpha code identifying the violation |
+| violation_description | string | Human-readable description of the violation |
+| fine_amount | float | Dollar amount of the fine |
+| latitude / longitude | float | GPS coordinates of the citation location |
 
 **Why this dataset requires multi-step analysis:**
-<!-- Explain why single-step queries are insufficient — e.g., derived metrics, conditional grouping, etc. -->
+Single-step queries cannot answer meaningful questions about this data. For example, finding the vehicle make with the highest average fine *among makes with more than 100 citations* requires aggregation, filtering on the aggregate, and sorting — three distinct operations. Similarly, deriving an "issue hour" from the raw `issue_time` field (e.g., 1430 → 14) requires a column derivation before any grouping can happen. The mix of numeric fines, categorical makes/violations, encoded timestamps, and geographic data naturally produces questions that span multiple operator types.
 
 ---
 
