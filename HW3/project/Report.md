@@ -81,15 +81,18 @@ Single-step queries cannot answer meaningful questions about this data. For exam
   - how the execution trace is recorded -->
 
 ### 3.3 Operators
-<!-- Describe each implemented operator:
-  - derive_columns
-  - filter_rows
-  - group_and_aggregate
-  - sort_rows
-  - limit_rows
-  - select_columns
-  - distinct_rows
-  - (any additional operators) -->
+
+All operators live in `operators.py`. Each takes a `pd.DataFrame` plus structured parameters and returns a new `pd.DataFrame` — no side effects, no natural language.
+
+| Operator | Parameters | Behavior |
+|----------|-----------|----------|
+| `derive_columns` | `derive`: list of `{new_column, type, operation, left, right}` | Adds computed columns via arithmetic (add, subtract, multiply, divide, floor_divide). Operands are column references or literals. |
+| `filter_rows` | `conditions`: list of `{column, operator, value}` | Keeps rows satisfying all conditions (AND). Operators: `<`, `>`, `<=`, `>=`, `==`, `!=`. |
+| `group_and_aggregate` | `group_by`: list of columns; `metrics`: list of `{function, column, as}` | Groups and computes mean, sum, count, min, or max per group. Multiple metrics per call are supported. |
+| `sort_rows` | `sort_by`: list of `{column, direction}` | Sorts by one or more columns; direction is `"asc"` or `"desc"`. |
+| `limit_rows` | `k`: int | Returns the first k rows. |
+| `select_columns` | `columns`: list of str | Drops all columns not in the list. |
+| `distinct_rows` | `columns`: list of str (optional) | Removes duplicate rows, optionally scoped to a subset of columns. |
 
 ### 3.4 Intermediate Result Passing
 <!-- Explain how the output of one step becomes the input of the next, and how the pipeline maintains state. -->
