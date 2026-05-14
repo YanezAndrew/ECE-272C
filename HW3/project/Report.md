@@ -369,3 +369,337 @@ The system handles aggregate-rank-truncate patterns (group → sort → limit) e
 
 **Future extensions:**
 The plan-and-execute model is well-suited for adding a **plan verification step** between the planner and executor — a second LLM call that checks the plan for logical errors before execution. This would catch silent failures like the OR-logic bug before they produce wrong answers. The system could also be extended to support **multi-step re-planning**: if the executor hits an error, it sends the error and partial trace back to the planner to generate a corrected plan, making the system self-healing.
+
+---
+
+## Appendix: Full Execution Traces for All 15 Questions
+
+### B1 — Top 5 vehicle makes by citation count
+
+**Question:** What are the top 5 vehicle makes by number of citations received?
+
+**Plan:**
+```json
+{"steps": [{"op": "group_and_aggregate", "group_by": ["make"], "metrics": [{"function": "count", "column": "ticket_number", "as": "citation_count"}]}, {"op": "sort_rows", "sort_by": [{"column": "citation_count", "direction": "desc"}]}, {"op": "limit_rows", "k": 5}, {"op": "select_columns", "columns": ["make", "citation_count"]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | group_and_aggregate | 19,966 | 99 |
+| 2 | sort_rows | 99 | 99 |
+| 3 | limit_rows | 99 | 5 |
+| 4 | select_columns | 5 | 5 |
+
+**Answer:** TOYT (3,460), HOND (2,269), FORD (1,768), CHEV (1,440), NISS (1,406).
+
+---
+
+### B2 — Average fine for out-of-state vehicles
+
+**Question:** What is the average fine amount for citations issued to out-of-state (non-CA) vehicles?
+
+**Plan:**
+```json
+{"steps": [{"op": "filter_rows", "conditions": [{"column": "rp_state_plate", "operator": "!=", "value": "CA"}]}, {"op": "group_and_aggregate", "group_by": [], "metrics": [{"function": "mean", "column": "fine_amount", "as": "average_fine_amount"}]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | filter_rows | 19,966 | 1,251 |
+| 2 | group_and_aggregate | 1,251 | 1 |
+
+**Answer:** $74.17
+
+---
+
+### B3 — Top 3 most expensive violation types
+
+**Question:** What are the top 3 most expensive violation types by average fine amount?
+
+**Plan:**
+```json
+{"steps": [{"op": "group_and_aggregate", "group_by": ["violation_description"], "metrics": [{"function": "mean", "column": "fine_amount", "as": "average_fine_amount"}]}, {"op": "sort_rows", "sort_by": [{"column": "average_fine_amount", "direction": "desc"}]}, {"op": "limit_rows", "k": 3}, {"op": "select_columns", "columns": ["violation_description", "average_fine_amount"]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | group_and_aggregate | 19,966 | 90 |
+| 2 | sort_rows | 90 | 90 |
+| 3 | limit_rows | 90 | 3 |
+| 4 | select_columns | 3 | 3 |
+
+**Answer:** HANDICAP/ON LINE ($363), 2251157B ($363), DISABLED PARKING/NO ($363).
+
+---
+
+### B4 — Citations per body style
+
+**Question:** How many citations were issued per body style, ordered from most to least?
+
+**Plan:**
+```json
+{"steps": [{"op": "group_and_aggregate", "group_by": ["body_style"], "metrics": [{"function": "count", "column": "ticket_number", "as": "citation_count"}]}, {"op": "sort_rows", "sort_by": [{"column": "citation_count", "direction": "desc"}]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | group_and_aggregate | 19,966 | 15 |
+| 2 | sort_rows | 15 | 15 |
+
+**Answer:** PA (17,743), PU (653), VN (517), TK (472), CM (278), TR (147), and 9 others.
+
+---
+
+### B5 — Distinct violations for $73 fines
+
+**Question:** What are the distinct violation descriptions for citations with a fine of exactly $73?
+
+**Plan:**
+```json
+{"steps": [{"op": "filter_rows", "conditions": [{"column": "fine_amount", "operator": "==", "value": 73.0}]}, {"op": "distinct_rows", "columns": ["violation_description"]}, {"op": "select_columns", "columns": ["violation_description"]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | filter_rows | 19,966 | 7,418 |
+| 2 | distinct_rows | 7,418 | 3 |
+| 3 | select_columns | 3 | 3 |
+
+**Answer:** NO PARK/STREET CLEAN, NO PARKING, PK OVERSIZ.
+
+---
+
+### I1 — Top 3 violations for Toyota vehicles
+
+**Question:** Among Toyota (TOYT) vehicles, what are the top 3 violation types by citation count?
+
+**Plan:**
+```json
+{"steps": [{"op": "filter_rows", "conditions": [{"column": "make", "operator": "==", "value": "TOYT"}]}, {"op": "group_and_aggregate", "group_by": ["violation_description"], "metrics": [{"function": "count", "column": "ticket_number", "as": "citation_count"}]}, {"op": "sort_rows", "sort_by": [{"column": "citation_count", "direction": "desc"}]}, {"op": "limit_rows", "k": 3}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | filter_rows | 19,966 | 3,460 |
+| 2 | group_and_aggregate | 3,460 | 41 |
+| 3 | sort_rows | 41 | 41 |
+| 4 | limit_rows | 41 | 3 |
+
+**Answer:** NO PARK/STREET CLEAN (1,326), METER EXP. (603), PREFERENTIAL PARKING (247).
+
+---
+
+### I2 — Violation types with revenue above $50,000
+
+**Question:** Which violation types generated total fine revenue above $50,000?
+
+**Plan:**
+```json
+{"steps": [{"op": "group_and_aggregate", "group_by": ["violation_description"], "metrics": [{"function": "sum", "column": "fine_amount", "as": "total_fine_revenue"}]}, {"op": "filter_rows", "conditions": [{"column": "total_fine_revenue", "operator": ">", "value": 50000}]}, {"op": "select_columns", "columns": ["violation_description", "total_fine_revenue"]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | group_and_aggregate | 19,966 | 90 |
+| 2 | filter_rows | 90 | 6 |
+| 3 | select_columns | 6 | 6 |
+
+**Answer:** METER EXP. ($229,887), NO PARK/STREET CLEAN ($488,078), NO PARKING ($53,363), NO STOPPING/ANTI-GRI ($54,279), PREFERENTIAL PARKING ($77,044), RED ZONE ($127,410).
+
+---
+
+### I3 — Most common morning violation
+
+**Question:** For citations issued during morning hours (issue_time less than 1200), what is the most common violation?
+
+**Plan:**
+```json
+{"steps": [{"op": "filter_rows", "conditions": [{"column": "issue_time", "operator": "<", "value": 1200}]}, {"op": "group_and_aggregate", "group_by": ["violation_description"], "metrics": [{"function": "count", "column": "ticket_number", "as": "violation_count"}]}, {"op": "sort_rows", "sort_by": [{"column": "violation_count", "direction": "desc"}]}, {"op": "limit_rows", "k": 1}, {"op": "select_columns", "columns": ["violation_description"]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | filter_rows | 19,966 | 10,280 |
+| 2 | group_and_aggregate | 10,280 | 75 |
+| 3 | sort_rows | 75 | 75 |
+| 4 | limit_rows | 75 | 1 |
+| 5 | select_columns | 1 | 1 |
+
+**Answer:** NO PARK/STREET CLEAN.
+
+---
+
+### I4 — Top 5 locations for RED ZONE violations
+
+**Question:** What are the top 5 locations with the most RED ZONE violations?
+
+**Plan:**
+```json
+{"steps": [{"op": "filter_rows", "conditions": [{"column": "violation_description", "operator": "==", "value": "RED ZONE"}]}, {"op": "group_and_aggregate", "group_by": ["location"], "metrics": [{"function": "count", "column": "ticket_number", "as": "red_zone_violations"}]}, {"op": "sort_rows", "sort_by": [{"column": "red_zone_violations", "direction": "desc"}]}, {"op": "limit_rows", "k": 5}, {"op": "select_columns", "columns": ["location", "red_zone_violations"]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | filter_rows | 19,966 | 1,370 |
+| 2 | group_and_aggregate | 1,370 | 1,241 |
+| 3 | sort_rows | 1,241 | 1,241 |
+| 4 | limit_rows | 1,241 | 5 |
+| 5 | select_columns | 5 | 5 |
+
+**Answer:** 7046 HOLLYWOOD BLVD (11), 2800 E OBSERVATORY (7), 7001 HAWTHORN AVE (6), 7000 HOLLYWOOD BLVD (5), 804 SAN PEDRO ST S (5).
+
+---
+
+### I5 — Passenger vehicle makes with 20+ high-fine citations
+
+**Question:** Among passenger vehicles (body_style PA), which vehicle makes have more than 20 citations with fines above $100?
+
+**Plan:**
+```json
+{"steps": [{"op": "filter_rows", "conditions": [{"column": "body_style", "operator": "==", "value": "PA"}, {"column": "fine_amount", "operator": ">", "value": 100.0}]}, {"op": "group_and_aggregate", "group_by": ["make"], "metrics": [{"function": "count", "column": "ticket_number", "as": "citation_count"}]}, {"op": "filter_rows", "conditions": [{"column": "citation_count", "operator": ">", "value": 20}]}, {"op": "select_columns", "columns": ["make"]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | filter_rows | 19,966 | 516 |
+| 2 | group_and_aggregate | 516 | 42 |
+| 3 | filter_rows | 42 | 7 |
+| 4 | select_columns | 7 | 7 |
+
+**Answer:** CHEV, FORD, HOND, HYUN, NISS, TOYT, VOLK.
+
+---
+
+### A1 — Top 3 hours by total fine revenue
+
+**Question:** Derive the issue hour from issue_time by floor dividing by 100, then find the top 3 hours by total fine revenue.
+
+**Plan:**
+```json
+{"steps": [{"op": "derive_columns", "derive": [{"new_column": "issue_hour", "type": "arithmetic", "operation": "floor_divide", "left": {"type": "column", "value": "issue_time"}, "right": {"type": "literal", "value": 100}}]}, {"op": "group_and_aggregate", "group_by": ["issue_hour"], "metrics": [{"function": "sum", "column": "fine_amount", "as": "total_fine_revenue"}]}, {"op": "sort_rows", "sort_by": [{"column": "total_fine_revenue", "direction": "desc"}]}, {"op": "limit_rows", "k": 3}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | derive_columns | 19,966 | 19,966 |
+| 2 | group_and_aggregate | 19,966 | 24 |
+| 3 | sort_rows | 24 | 24 |
+| 4 | limit_rows | 24 | 3 |
+
+**Answer:** 8 AM ($198,892), 10 AM ($179,546), 12 PM ($164,685).
+
+---
+
+### A2 — Top 5 makes by average fine (100+ citations)
+
+**Question:** Among vehicle makes with more than 100 citations, which 5 have the highest average fine amount?
+
+**Plan:**
+```json
+{"steps": [{"op": "group_and_aggregate", "group_by": ["make"], "metrics": [{"function": "count", "column": "ticket_number", "as": "citation_count"}, {"function": "mean", "column": "fine_amount", "as": "average_fine"}]}, {"op": "filter_rows", "conditions": [{"column": "citation_count", "operator": ">", "value": 100}]}, {"op": "sort_rows", "sort_by": [{"column": "average_fine", "direction": "desc"}]}, {"op": "limit_rows", "k": 5}, {"op": "select_columns", "columns": ["make", "average_fine"]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | group_and_aggregate | 19,966 | 99 |
+| 2 | filter_rows | 99 | 29 |
+| 3 | sort_rows | 29 | 29 |
+| 4 | limit_rows | 29 | 5 |
+| 5 | select_columns | 5 | 5 |
+
+**Answer:** TOYO ($96.31), CADI ($82.08), OTHR ($78.75), DODG ($74.78), BUIC ($74.36).
+
+---
+
+### A3 — Fine-to-citation ratio above $80
+
+**Question:** For each violation type, compute the ratio of total fine revenue to citation count. Which violations have a ratio above $80, ranked by ratio descending?
+
+**Plan:**
+```json
+{"steps": [{"op": "group_and_aggregate", "group_by": ["violation_code"], "metrics": [{"function": "sum", "column": "fine_amount", "as": "total_fine_revenue"}, {"function": "count", "column": "ticket_number", "as": "citation_count"}]}, {"op": "derive_columns", "derive": [{"new_column": "fine_to_citation_ratio", "type": "arithmetic", "operation": "divide", "left": {"type": "column", "value": "total_fine_revenue"}, "right": {"type": "column", "value": "citation_count"}}]}, {"op": "filter_rows", "conditions": [{"column": "fine_to_citation_ratio", "operator": ">", "value": 80}]}, {"op": "sort_rows", "sort_by": [{"column": "fine_to_citation_ratio", "direction": "desc"}]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | group_and_aggregate | 19,966 | 95 |
+| 2 | derive_columns | 95 | 95 |
+| 3 | filter_rows | 95 | 30 |
+| 4 | sort_rows | 30 | 30 |
+
+**Answer:** 30 violation codes qualify. Top ratio: $363 (handicap/disabled parking codes). Lowest qualifying ratio: $93.
+
+---
+
+### A4 — Top 3 CA makes for street cleaning citations (50+ citations)
+
+**Question:** Among California-registered vehicles cited for NO PARK/STREET CLEAN violations, which 3 vehicle makes have the highest total fines among makes with more than 50 such citations?
+
+**Plan:**
+```json
+{"steps": [{"op": "filter_rows", "conditions": [{"column": "rp_state_plate", "operator": "==", "value": "CA"}, {"column": "violation_description", "operator": "==", "value": "NO PARK/STREET CLEAN"}]}, {"op": "group_and_aggregate", "group_by": ["make"], "metrics": [{"function": "sum", "column": "fine_amount", "as": "total_fines"}, {"function": "count", "column": "ticket_number", "as": "citation_count"}]}, {"op": "filter_rows", "conditions": [{"column": "citation_count", "operator": ">", "value": 50}]}, {"op": "sort_rows", "sort_by": [{"column": "total_fines", "direction": "desc"}]}, {"op": "limit_rows", "k": 3}, {"op": "select_columns", "columns": ["make", "total_fines"]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | filter_rows | 19,966 | 6,316 |
+| 2 | group_and_aggregate | 6,316 | 68 |
+| 3 | filter_rows | 68 | 23 |
+| 4 | sort_rows | 23 | 23 |
+| 5 | limit_rows | 23 | 3 |
+| 6 | select_columns | 3 | 3 |
+
+**Answer:** TOYT ($92,856), HOND ($60,882), FORD ($40,296).
+
+---
+
+### A5 — Top 3 afternoon makes by total fine revenue (50+ citations)
+
+**Question:** Derive the issue hour from issue_time by floor dividing by 100, keep only afternoon citations where hour is between 12 and 18, then find the top 3 vehicle makes by total fine revenue among makes with more than 50 such citations.
+
+**Plan:**
+```json
+{"steps": [{"op": "derive_columns", "derive": [{"new_column": "issue_hour", "type": "arithmetic", "operation": "floor_divide", "left": {"type": "column", "value": "issue_time"}, "right": {"type": "literal", "value": 100}}]}, {"op": "filter_rows", "conditions": [{"column": "issue_hour", "operator": ">=", "value": 12}, {"column": "issue_hour", "operator": "<", "value": 18}]}, {"op": "group_and_aggregate", "group_by": ["make"], "metrics": [{"function": "sum", "column": "fine_amount", "as": "total_fine_revenue"}, {"function": "count", "column": "ticket_number", "as": "citation_count"}]}, {"op": "filter_rows", "conditions": [{"column": "citation_count", "operator": ">", "value": 50}]}, {"op": "sort_rows", "sort_by": [{"column": "total_fine_revenue", "direction": "desc"}]}, {"op": "limit_rows", "k": 3}, {"op": "select_columns", "columns": ["make", "total_fine_revenue"]}]}
+```
+
+**Execution trace:**
+
+| Step | Operation | Input Rows | Output Rows |
+|------|-----------|------------|-------------|
+| 1 | derive_columns | 19,966 | 19,966 |
+| 2 | filter_rows | 19,966 | 7,265 |
+| 3 | group_and_aggregate | 7,265 | 79 |
+| 4 | filter_rows | 79 | 25 |
+| 5 | sort_rows | 25 | 25 |
+| 6 | limit_rows | 25 | 3 |
+| 7 | select_columns | 3 | 3 |
+
+**Answer:** TOYT ($92,445), HOND ($59,354), FORD ($46,681).

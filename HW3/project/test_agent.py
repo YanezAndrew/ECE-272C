@@ -55,9 +55,9 @@ def main():
         print()
 
     with open("results.csv", "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["id", "question", "plan", "final_answer"])
+        writer = csv.DictWriter(f, fieldnames=["question", "plan", "final_answer"])
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows([{"question": r["question"], "plan": r["plan"], "final_answer": r["final_answer"]} for r in rows])
 
     print(f"Wrote {len(rows)} results to results.csv")
 
