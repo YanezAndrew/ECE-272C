@@ -58,6 +58,10 @@ def filter_rows(df: pd.DataFrame, conditions: list) -> pd.DataFrame:
             mask &= col == val
         elif op == "!=":
             mask &= col != val
+        elif op == "in":
+            mask &= col.isin(val)
+        elif op == "not in":
+            mask &= ~col.isin(val)
         else:
             raise ValueError(f"Unknown filter operator: {op}")
     return df[mask].reset_index(drop=True)
@@ -82,6 +86,15 @@ def group_and_aggregate(df: pd.DataFrame, group_by: list, metrics: list) -> pd.D
             agg_map[col] = []
         agg_map[col].append(func)
         rename_map[(col, func)] = alias
+
+    if not group_by:
+        # global aggregate — no grouping keys
+        row = {}
+        for col, funcs in agg_map.items():
+            for func in funcs:
+                alias = rename_map[(col, func)]
+                row[alias] = getattr(df[col], func)()
+        return pd.DataFrame([row])
 
     result = df.groupby(group_by).agg(agg_map).reset_index()
     result.columns = [

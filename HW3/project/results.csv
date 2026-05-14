@@ -1,0 +1,85 @@
+id,question,plan,final_answer
+B1,What are the top 5 vehicle makes by number of citations received?,"{""steps"": [{""op"": ""group_and_aggregate"", ""group_by"": [""make""], ""metrics"": [{""function"": ""count"", ""column"": ""ticket_number"", ""as"": ""citation_count""}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""citation_count"", ""direction"": ""desc""}]}, {""op"": ""limit_rows"", ""k"": 5}, {""op"": ""select_columns"", ""columns"": [""make"", ""citation_count""]}]}","The top 5 vehicle makes by number of citations received are:
+
+1. TOYT with 3,460 citations
+2. HOND with 2,269 citations
+3. FORD with 1,768 citations
+4. CHEV with 1,440 citations
+5. NISS with 1,406 citations"
+B2,What is the average fine amount for citations issued to out-of-state (non-CA) vehicles?,"{""steps"": [{""op"": ""filter_rows"", ""conditions"": [{""column"": ""rp_state_plate"", ""operator"": ""!="", ""value"": ""CA""}]}, {""op"": ""group_and_aggregate"", ""group_by"": [], ""metrics"": [{""function"": ""mean"", ""column"": ""fine_amount"", ""as"": ""average_fine_amount""}]}]}",The average fine amount for citations issued to out-of-state (non-CA) vehicles is 74.171063.
+B3,What are the top 3 most expensive violation types by average fine amount?,"{""steps"": [{""op"": ""group_and_aggregate"", ""group_by"": [""violation_description""], ""metrics"": [{""function"": ""mean"", ""column"": ""fine_amount"", ""as"": ""average_fine""}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""average_fine"", ""direction"": ""desc""}]}, {""op"": ""limit_rows"", ""k"": 3}, {""op"": ""select_columns"", ""columns"": [""violation_description"", ""average_fine""]}]}","The top 3 most expensive violation types by average fine amount are:
+
+1. HANDICAP/ON LINE with an average fine of 363.0
+2. 2251157B with an average fine of 363.0
+3. DISABLED PARKING/NO with an average fine of 363.0"
+B4,"How many citations were issued per body style, ordered from most to least?","{""steps"": [{""op"": ""group_and_aggregate"", ""group_by"": [""body_style""], ""metrics"": [{""function"": ""count"", ""column"": ""ticket_number"", ""as"": ""citation_count""}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""citation_count"", ""direction"": ""desc""}]}]}","The number of citations issued per body style, ordered from most to least, is as follows:
+
+1. PA: 17,743
+2. PU: 653
+3. VN: 517
+4. TK: 472
+5. CM: 278
+6. TR: 147
+7. MH: 43
+8. MC: 37
+9. SU: 33
+10. OT: 17
+11. MS: 8
+12. BU: 4
+13. RV: 1
+14. TL: 1
+15. UT: 1"
+B5,What are the distinct violation descriptions for citations with a fine of exactly $73?,"{""steps"": [{""op"": ""filter_rows"", ""conditions"": [{""column"": ""fine_amount"", ""operator"": ""=="", ""value"": 73.0}]}, {""op"": ""distinct_rows"", ""columns"": [""violation_description""]}, {""op"": ""select_columns"", ""columns"": [""violation_description""]}]}","The distinct violation descriptions for citations with a fine of exactly $73 are ""NO PARK/STREET CLEAN,"" ""NO PARKING,"" and ""PK OVERSIZ."""
+I1,"Among Toyota (TOYT) vehicles, what are the top 3 violation types by citation count?","{""steps"": [{""op"": ""filter_rows"", ""conditions"": [{""column"": ""make"", ""operator"": ""=="", ""value"": ""TOYT""}]}, {""op"": ""group_and_aggregate"", ""group_by"": [""violation_description""], ""metrics"": [{""function"": ""count"", ""column"": ""ticket_number"", ""as"": ""citation_count""}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""citation_count"", ""direction"": ""desc""}]}, {""op"": ""limit_rows"", ""k"": 3}, {""op"": ""select_columns"", ""columns"": [""violation_description"", ""citation_count""]}]}","The top 3 violation types for Toyota (TOYT) vehicles by citation count are:
+
+1. NO PARK/STREET CLEAN with 1,326 citations
+2. METER EXP. with 603 citations
+3. PREFERENTIAL PARKING with 247 citations."
+I2,"Which violation types generated total fine revenue above $50,000?","{""steps"": [{""op"": ""group_and_aggregate"", ""group_by"": [""violation_description""], ""metrics"": [{""function"": ""sum"", ""column"": ""fine_amount"", ""as"": ""total_fine_revenue""}]}, {""op"": ""filter_rows"", ""conditions"": [{""column"": ""total_fine_revenue"", ""operator"": "">"", ""value"": 50000}]}, {""op"": ""select_columns"", ""columns"": [""violation_description""]}]}","The violation types that generated total fine revenue above $50,000 are:
+
+- METER EXP.
+- NO PARK/STREET CLEAN
+- NO PARKING
+- NO STOPPING/ANTI-GRI
+- PREFERENTIAL PARKING
+- RED ZONE"
+I3,"For citations issued during morning hours (issue_time less than 1200), what is the most common violation?","{""steps"": [{""op"": ""filter_rows"", ""conditions"": [{""column"": ""issue_time"", ""operator"": ""<"", ""value"": 1200}]}, {""op"": ""group_and_aggregate"", ""group_by"": [""violation_code""], ""metrics"": [{""function"": ""count"", ""column"": ""violation_code"", ""as"": ""violation_count""}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""violation_count"", ""direction"": ""desc""}]}, {""op"": ""limit_rows"", ""k"": 1}, {""op"": ""select_columns"", ""columns"": [""violation_code""]}]}",The most common violation for citations issued during morning hours (issue_time less than 1200) is violation code 80.69BS.
+I4,What are the top 5 locations with the most RED ZONE violations?,"{""steps"": [{""op"": ""filter_rows"", ""conditions"": [{""column"": ""violation_description"", ""operator"": ""=="", ""value"": ""RED ZONE""}]}, {""op"": ""group_and_aggregate"", ""group_by"": [""location""], ""metrics"": [{""function"": ""count"", ""column"": ""ticket_number"", ""as"": ""red_zone_violations""}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""red_zone_violations"", ""direction"": ""desc""}]}, {""op"": ""limit_rows"", ""k"": 5}, {""op"": ""select_columns"", ""columns"": [""location"", ""red_zone_violations""]}]}","The top 5 locations with the most RED ZONE violations are:
+
+1. 7046 HOLLYWOOD BLVD with 11 violations
+2. 2800 E OBSERVATORY with 7 violations
+3. 7001 HAWTHORN AVE with 6 violations
+4. 7000 HOLLYWOOD BLVD with 5 violations
+5. 804 SAN PEDRO ST S with 5 violations"
+I5,"Among passenger vehicles (body_style PA), which vehicle makes have more than 20 citations with fines above $100?","{""steps"": [{""op"": ""filter_rows"", ""conditions"": [{""column"": ""body_style"", ""operator"": ""=="", ""value"": ""PA""}, {""column"": ""fine_amount"", ""operator"": "">"", ""value"": 100}]}, {""op"": ""group_and_aggregate"", ""group_by"": [""make""], ""metrics"": [{""function"": ""count"", ""column"": ""ticket_number"", ""as"": ""citation_count""}]}, {""op"": ""filter_rows"", ""conditions"": [{""column"": ""citation_count"", ""operator"": "">"", ""value"": 20}]}, {""op"": ""select_columns"", ""columns"": [""make""]}]}","The vehicle makes among passenger vehicles (body_style PA) that have more than 20 citations with fines above $100 are CHEV, FORD, HOND, HYUN, NISS, TOYT, and VOLK."
+A1,"Derive the issue hour from issue_time by floor dividing by 100, then find the top 3 hours by total fine revenue.","{""steps"": [{""op"": ""derive_columns"", ""derive"": [{""new_column"": ""issue_hour"", ""type"": ""arithmetic"", ""operation"": ""floor_divide"", ""left"": {""type"": ""column"", ""value"": ""issue_time""}, ""right"": {""type"": ""literal"", ""value"": 100}}]}, {""op"": ""group_and_aggregate"", ""group_by"": [""issue_hour""], ""metrics"": [{""function"": ""sum"", ""column"": ""fine_amount"", ""as"": ""total_fine_revenue""}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""total_fine_revenue"", ""direction"": ""desc""}]}, {""op"": ""limit_rows"", ""k"": 3}]}","The top 3 hours by total fine revenue are:
+
+1. 8:00 with a total fine revenue of 198,892.0
+2. 10:00 with a total fine revenue of 179,546.0
+3. 12:00 with a total fine revenue of 164,685.0"
+A2,"Among vehicle makes with more than 100 citations, which 5 have the highest average fine amount?","{""steps"": [{""op"": ""group_and_aggregate"", ""group_by"": [""make""], ""metrics"": [{""function"": ""count"", ""column"": ""ticket_number"", ""as"": ""citation_count""}, {""function"": ""mean"", ""column"": ""fine_amount"", ""as"": ""average_fine""}]}, {""op"": ""filter_rows"", ""conditions"": [{""column"": ""citation_count"", ""operator"": "">"", ""value"": 100}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""average_fine"", ""direction"": ""desc""}]}, {""op"": ""limit_rows"", ""k"": 5}, {""op"": ""select_columns"", ""columns"": [""make"", ""average_fine""]}]}","Among vehicle makes with more than 100 citations, the five with the highest average fine amount are:
+
+1. TOYO with an average fine of 96.31
+2. CADI with an average fine of 82.08
+3. OTHR with an average fine of 78.75
+4. DODG with an average fine of 74.78
+5. BUIC with an average fine of 74.36"
+A3,"For each violation type, compute the ratio of total fine revenue to citation count. Which violations have a ratio above $80, ranked by ratio descending?","{""steps"": [{""op"": ""group_and_aggregate"", ""group_by"": [""violation_code""], ""metrics"": [{""function"": ""sum"", ""column"": ""fine_amount"", ""as"": ""total_fine_revenue""}, {""function"": ""count"", ""column"": ""ticket_number"", ""as"": ""citation_count""}]}, {""op"": ""derive_columns"", ""derive"": [{""new_column"": ""fine_to_citation_ratio"", ""type"": ""arithmetic"", ""operation"": ""divide"", ""left"": {""type"": ""column"", ""value"": ""total_fine_revenue""}, ""right"": {""type"": ""column"", ""value"": ""citation_count""}}]}, {""op"": ""filter_rows"", ""conditions"": [{""column"": ""fine_to_citation_ratio"", ""operator"": "">"", ""value"": 80}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""fine_to_citation_ratio"", ""direction"": ""desc""}]}]}","The violations with a fine-to-citation ratio above $80, ranked by ratio descending, are:
+
+1. Violation codes 570, 569, 571, 22500L, 22500L-, 22507.8A, 22507.8B, 22507.8C, 225078A, 225078C1, 225078C2, 22511.57, and 22522- all have a ratio of $363.0.
+2. Violation code 014 has a ratio of $293.0.
+3. Violation code 22500I- has a ratio of $293.0.
+4. Violation code 80.58.1 has a ratio of $163.0.
+5. Violation code 80.70 has a ratio of $163.0.
+6. Violation code 8070 has a ratio of $163.0.
+7. Violation code 22523A- has a ratio of $143.0.
+8. Violation code 80.69.4 has a ratio of $100.5.
+9. Violation code 80.69.2 has a ratio of $99.0.
+10. Violation code 21211B has a ratio of $93.0.
+11. Violation codes 80.56E4+, 80.69A+, 80.69AA+, 80.69AP+, 8056E4, 8069A, 8069AA, and 8069AP all have a ratio of $93.0."
+A4,"Among California-registered vehicles cited for NO PARK/STREET CLEAN violations, which 3 vehicle makes have the highest total fines among makes with more than 50 such citations?","{""steps"": [{""op"": ""filter_rows"", ""conditions"": [{""column"": ""rp_state_plate"", ""operator"": ""=="", ""value"": ""CA""}, {""column"": ""violation_description"", ""operator"": ""=="", ""value"": ""NO PARK/STREET CLEAN""}]}, {""op"": ""group_and_aggregate"", ""group_by"": [""make""], ""metrics"": [{""function"": ""sum"", ""column"": ""fine_amount"", ""as"": ""total_fines""}, {""function"": ""count"", ""column"": ""ticket_number"", ""as"": ""citation_count""}]}, {""op"": ""filter_rows"", ""conditions"": [{""column"": ""citation_count"", ""operator"": "">"", ""value"": 50}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""total_fines"", ""direction"": ""desc""}]}, {""op"": ""limit_rows"", ""k"": 3}, {""op"": ""select_columns"", ""columns"": [""make"", ""total_fines""]}]}","The three vehicle makes with the highest total fines among those with more than 50 NO PARK/STREET CLEAN citations are TOYT with $92,856.0, HOND with $60,882.0, and FORD with $40,296.0."
+A5,"Derive the issue hour from issue_time by floor dividing by 100, keep only afternoon citations where hour is between 12 and 18, then find the top 3 vehicle makes by total fine revenue among makes with more than 50 such citations.","{""steps"": [{""op"": ""derive_columns"", ""derive"": [{""new_column"": ""issue_hour"", ""type"": ""arithmetic"", ""operation"": ""floor_divide"", ""left"": {""type"": ""column"", ""value"": ""issue_time""}, ""right"": {""type"": ""literal"", ""value"": 100}}]}, {""op"": ""filter_rows"", ""conditions"": [{""column"": ""issue_hour"", ""operator"": "">="", ""value"": 12}, {""column"": ""issue_hour"", ""operator"": ""<"", ""value"": 18}]}, {""op"": ""group_and_aggregate"", ""group_by"": [""make""], ""metrics"": [{""function"": ""sum"", ""column"": ""fine_amount"", ""as"": ""total_fine_revenue""}, {""function"": ""count"", ""column"": ""ticket_number"", ""as"": ""citation_count""}]}, {""op"": ""filter_rows"", ""conditions"": [{""column"": ""citation_count"", ""operator"": "">"", ""value"": 50}]}, {""op"": ""sort_rows"", ""sort_by"": [{""column"": ""total_fine_revenue"", ""direction"": ""desc""}]}, {""op"": ""limit_rows"", ""k"": 3}, {""op"": ""select_columns"", ""columns"": [""make"", ""total_fine_revenue""]}]}","The top 3 vehicle makes by total fine revenue for afternoon citations (where the hour is between 12 and 18) among makes with more than 50 citations are:
+
+1. TOYT with a total fine revenue of 92,445.0
+2. HOND with a total fine revenue of 59,354.0
+3. FORD with a total fine revenue of 46,681.0"
