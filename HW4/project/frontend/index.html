@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orchestrated Analytics Agent</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 14px 24px;
+      background: #1a1d27;
+      border-bottom: 1px solid #2a2d3a;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.05rem; font-weight: 600; color: #fff; }
+    header span { font-size: 0.78rem; color: #6b7280; }
+
+    #toolbar {
+      padding: 8px 24px;
+      background: #1a1d27;
+      border-bottom: 1px solid #2a2d3a;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: #9ca3af;
+      flex-wrap: wrap;
+    }
+    #toolbar label { color: #6b7280; }
+    .year-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #2a2d3a;
+      border: 1px solid #3a3d4a;
+      border-radius: 6px;
+      padding: 3px 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 0.15s;
+    }
+    .year-toggle input { display: none; }
+    .year-toggle.active { border-color: #6366f1; color: #a5b4fc; background: #1e1f3a; }
+    #new-chat-btn {
+      margin-left: auto;
+      background: transparent;
+      border: 1px solid #3a3d4a;
+      color: #9ca3af;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+    #new-chat-btn:hover { border-color: #6366f1; color: #a5b4fc; }
+
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .msg { display: flex; gap: 12px; max-width: 860px; width: 100%; }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg.assistant { align-self: flex-start; }
+
+    .avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 700; flex-shrink: 0;
+    }
+    .msg.user .avatar    { background: #6366f1; color: #fff; }
+    .msg.assistant .avatar { background: #2a2d3a; color: #9ca3af; }
+
+    .bubble {
+      background: #1e2130;
+      border: 1px solid #2a2d3a;
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 0.88rem;
+      line-height: 1.65;
+      max-width: 800px;
+      width: 100%;
+    }
+    .msg.user .bubble {
+      background: #6366f1;
+      border-color: #6366f1;
+      color: #fff;
+    }
+
+    /* answer text */
+    .answer { white-space: pre-wrap; }
+
+    /* meta row */
+    .meta-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 0.73rem;
+      color: #4b5563;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 9999px;
+      font-size: 0.68rem;
+      font-weight: 600;
+    }
+    .badge.pass      { background: #14532d; color: #86efac; }
+    .badge.retry     { background: #78350f; color: #fde68a; }
+    .badge.suspicious{ background: #581c87; color: #e9d5ff; }
+    .badge.web       { background: #1e3a5f; color: #93c5fd; }
+    .badge.analytics { background: #1a3a2a; color: #6ee7b7; }
+
+    /* citations */
+    .citations {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #2a2d3a;
+    }
+    .citations-label {
+      font-size: 0.72rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .citation-item {
+      font-size: 0.78rem;
+      margin-bottom: 4px;
+    }
+    .citation-item a {
+      color: #818cf8;
+      text-decoration: none;
+    }
+    .citation-item a:hover { text-decoration: underline; }
+
+    /* plots */
+    .chart-wrapper {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #2a2d3a;
+    }
+    .chart-title {
+      font-size: 0.72rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    /* agent trace */
+    .trace-toggle {
+      margin-top: 12px;
+      font-size: 0.75rem;
+      color: #4b5563;
+      cursor: pointer;
+      user-select: none;
+      display: inline-block;
+    }
+    .trace-toggle:hover { color: #9ca3af; }
+    .trace-body {
+      margin-top: 8px;
+      display: none;
+      background: #12151e;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #9ca3af;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .trace-body.open { display: block; }
+
+    /* progress */
+    .progress {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.82rem; color: #6b7280;
+    }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid #3a3d4a;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-bubble {
+      background: #2d1b1b !important;
+      border-color: #7f1d1d !important;
+      color: #fca5a5;
+    }
+
+    #input-area {
+      padding: 14px 24px;
+      background: #1a1d27;
+      border-top: 1px solid #2a2d3a;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    #question-input {
+      flex: 1;
+      background: #2a2d3a;
+      border: 1px solid #3a3d4a;
+      border-radius: 10px;
+      color: #e0e0e0;
+      font-size: 0.88rem;
+      padding: 11px 14px;
+      resize: none;
+      min-height: 44px;
+      max-height: 140px;
+      outline: none;
+    }
+    #question-input:focus { border-color: #6366f1; }
+    #question-input::placeholder { color: #4b5563; }
+
+    #send-btn {
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 20px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    #send-btn:hover:not(:disabled) { background: #4f46e5; }
+    #send-btn:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #4b5563;
+      text-align: center;
+    }
+    .empty-state h2 { font-size: 1.25rem; color: #6b7280; font-weight: 500; }
+    .empty-state p  { font-size: 0.82rem; max-width: 420px; line-height: 1.6; }
+
+    .suggestions {
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+      margin-top: 12px;
+    }
+    .suggestion-chip {
+      background: #1e2130;
+      border: 1px solid #2a2d3a;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      color: #9ca3af;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .suggestion-chip:hover { border-color: #6366f1; color: #a5b4fc; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Orchestrated Analytics Agent</h1>
+  <span>US Stocks 2014–2018 · GPT-4o · DuckDuckGo</span>
+</header>
+
+<div id="toolbar">
+  <label>Years:</label>
+  <label class="year-toggle active"><input type="checkbox" value="2014" checked> 2014</label>
+  <label class="year-toggle active"><input type="checkbox" value="2015" checked> 2015</label>
+  <label class="year-toggle active"><input type="checkbox" value="2016" checked> 2016</label>
+  <label class="year-toggle active"><input type="checkbox" value="2017" checked> 2017</label>
+  <label class="year-toggle active"><input type="checkbox" value="2018" checked> 2018</label>
+  <button id="new-chat-btn">+ New Chat</button>
+</div>
+
+<div id="messages">
+  <div class="empty-state">
+    <h2>Ask anything about US stock financials</h2>
+    <p>Analytics questions run the iterative code-generation pipeline with validation.
+       General questions use DuckDuckGo web search.</p>
+    <div class="suggestions">
+      <div class="suggestion-chip" onclick="prefill(this)">Which sector had the highest ROE in 2016?</div>
+      <div class="suggestion-chip" onclick="prefill(this)">How did Tech sector PE ratios change from 2014 to 2017?</div>
+      <div class="suggestion-chip" onclick="prefill(this)">What is retrieval-augmented generation?</div>
+      <div class="suggestion-chip" onclick="prefill(this)">Find the top 10 stocks by gross margin in 2015</div>
+    </div>
+  </div>
+</div>
+
+<div id="input-area">
+  <textarea id="question-input" placeholder="Ask about the data or anything general…" rows="1"></textarea>
+  <button id="send-btn">Send</button>
+</div>
+
+<script>
+  let conversationId = null;
+  let isLoading = false;
+
+  const messagesEl   = document.getElementById("messages");
+  const inputEl      = document.getElementById("question-input");
+  const sendBtn      = document.getElementById("send-btn");
+  const newChatBtn   = document.getElementById("new-chat-btn");
+  const yearToggles  = document.querySelectorAll(".year-toggle");
+
+  // --- Year toggle UI ---
+  yearToggles.forEach(label => {
+    label.querySelector("input").addEventListener("change", function() {
+      label.classList.toggle("active", this.checked);
+    });
+  });
+
+  function getSelectedYears() {
+    const years = [];
+    yearToggles.forEach(label => {
+      const cb = label.querySelector("input");
+      if (cb.checked) years.push(parseInt(cb.value));
+    });
+    return years.length ? years : [2014, 2015, 2016, 2017, 2018];
+  }
+
+  // --- Suggestions ---
+  function prefill(el) {
+    inputEl.value = el.textContent;
+    inputEl.focus();
+  }
+
+  // --- Auto-resize textarea ---
+  inputEl.addEventListener("input", () => {
+    inputEl.style.height = "auto";
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + "px";
+  });
+
+  // --- Enter to send ---
+  inputEl.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+
+  sendBtn.addEventListener("click", send);
+  newChatBtn.addEventListener("click", () => {
+    conversationId = null;
+    messagesEl.innerHTML = `
+      <div class="empty-state">
+        <h2>Ask anything about US stock financials</h2>
+        <p>Analytics questions run the iterative pipeline. General questions use web search.</p>
+      </div>`;
+  });
+
+  function setLoading(val) {
+    isLoading = val;
+    sendBtn.disabled = val;
+    inputEl.disabled = val;
+  }
+
+  function scrollBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function appendUserBubble(text) {
+    messagesEl.querySelector(".empty-state")?.remove();
+    const el = document.createElement("div");
+    el.className = "msg user";
+    el.innerHTML = `<div class="avatar">You</div>
+      <div class="bubble">${escHtml(text)}</div>`;
+    messagesEl.appendChild(el);
+    scrollBottom();
+  }
+
+  function appendAssistantBubble() {
+    const el = document.createElement("div");
+    el.className = "msg assistant";
+    el.innerHTML = `<div class="avatar">AI</div>
+      <div class="bubble">
+        <div class="progress">
+          <div class="spinner"></div>
+          <span class="progress-text">Routing question…</span>
+        </div>
+      </div>`;
+    messagesEl.appendChild(el);
+    scrollBottom();
+    return el;
+  }
+
+  function updateProgress(msgEl, text) {
+    const t = msgEl.querySelector(".progress-text");
+    if (t) t.textContent = text;
+    scrollBottom();
+  }
+
+  function finalizeAssistantBubble(msgEl, data) {
+    const bubble = msgEl.querySelector(".bubble");
+    let html = `<div class="answer">${escHtml(data.final_answer)}</div>`;
+
+    // meta row
+    const sourceBadge = `<span class="badge ${data.source}">${data.source === "web" ? "Web Search" : "Analytics"}</span>`;
+    let validatorBadge = "";
+    if (data.validator) {
+      const v = data.validator.verdict.toLowerCase();
+      validatorBadge = `<span class="badge ${v}">Validator: ${data.validator.verdict}</span>`;
+    }
+    const iterText = data.iterations ? `${data.iterations} iteration${data.iterations !== 1 ? "s" : ""}` : "";
+    const retryText = data.retries ? `${data.retries} retr${data.retries !== 1 ? "ies" : "y"}` : "";
+    const metaParts = [iterText, retryText].filter(Boolean).join(" · ");
+    html += `<div class="meta-row">${sourceBadge}${validatorBadge}${metaParts ? `<span>${metaParts}</span>` : ""}</div>`;
+
+    // citations
+    if (data.citations && data.citations.length) {
+      html += `<div class="citations">
+        <div class="citations-label">Sources</div>`;
+      data.citations.forEach(c => {
+        html += `<div class="citation-item">· <a href="${escHtml(c.url)}" target="_blank" rel="noopener">${escHtml(c.title || c.url)}</a></div>`;
+      });
+      html += `</div>`;
+    }
+
+    // plots
+    const plots = data.plots || [];
+    plots.forEach((p, i) => {
+      const chartId = `chart-${Date.now()}-${i}`;
+      html += `<div class="chart-wrapper">
+        <div class="chart-title">${escHtml(p.title)}</div>
+        <div id="${chartId}"></div>
+      </div>`;
+    });
+
+    // agent trace (collapsible)
+    if (data.execution_trace && data.execution_trace.length) {
+      const traceId = `trace-${Date.now()}`;
+      html += `<div class="trace-toggle" onclick="document.getElementById('${traceId}').classList.toggle('open')">
+        ▶ Agent trace (${data.execution_trace.length} step${data.execution_trace.length !== 1 ? "s" : ""})
+      </div>
+      <div class="trace-body" id="${traceId}">`;
+      data.execution_trace.forEach(t => {
+        html += `--- Iteration ${t.iteration} ---\n`;
+        if (t.error) html += `ERROR: ${escHtml(t.error)}\n`;
+        if (t.result_description) html += `Result: ${escHtml(t.result_description.slice(0, 600))}\n`;
+        if (t.stop_decision) html += `Stop: ${escHtml(JSON.stringify(t.stop_decision))}\n`;
+        html += "\n";
+      });
+      html += `</div>`;
+    }
+
+    bubble.innerHTML = html;
+
+    // render plots
+    plots.forEach((p, i) => {
+      const chartId = bubble.querySelectorAll("[id^='chart-']")[i]?.id;
+      if (!chartId) return;
+      try {
+        const fig = JSON.parse(p.plotly_json);
+        fig.layout = fig.layout || {};
+        fig.layout.paper_bgcolor = "transparent";
+        fig.layout.plot_bgcolor  = "transparent";
+        fig.layout.font          = { color: "#e0e0e0" };
+        fig.layout.margin        = { t: 40, r: 20, b: 60, l: 60 };
+        Plotly.newPlot(chartId, fig.data, fig.layout, { responsive: true, displayModeBar: false });
+      } catch(e) { console.warn("Plot render error:", e); }
+    });
+
+    scrollBottom();
+  }
+
+  function showErrorBubble(message) {
+    const el = document.createElement("div");
+    el.className = "msg assistant";
+    el.innerHTML = `<div class="avatar">AI</div>
+      <div class="bubble error-bubble">Error: ${escHtml(message)}</div>`;
+    messagesEl.appendChild(el);
+    scrollBottom();
+  }
+
+  const EVENT_LABELS = {
+    classify:          q => `Routing: ${q.source === "web" ? "web search" : "analytics pipeline"}…`,
+    web_search_start:  () => "Searching the web…",
+    web_search_done:   () => "Generating grounded answer…",
+    analytics_start:   q => `Analytics attempt ${q.attempt}${q.feedback ? " (with validator feedback)" : ""}…`,
+    analytics_done:    q => `Analysis complete (${q.iterations} iteration${q.iterations!==1?"s":""})`,
+    validator_start:   q => `Validating result (attempt ${q.attempt})…`,
+    validator_done:    q => `Validator: ${q.verdict}`,
+  };
+
+  async function send() {
+    const question = inputEl.value.trim();
+    if (!question || isLoading) return;
+
+    inputEl.value = "";
+    inputEl.style.height = "auto";
+    setLoading(true);
+
+    appendUserBubble(question);
+    const assistantMsg = appendAssistantBubble();
+
+    try {
+      const resp = await fetch("/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question,
+          conversation_id: conversationId,
+          years: getSelectedYears(),
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || "Request failed");
+      }
+
+      const reader  = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let   buf     = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          let event;
+          try { event = JSON.parse(line.slice(6)); } catch { continue; }
+
+          const labelFn = EVENT_LABELS[event.type];
+          if (labelFn) updateProgress(assistantMsg, labelFn(event));
+
+          if (event.type === "result") {
+            conversationId = event.conversation_id;
+            finalizeAssistantBubble(assistantMsg, event);
+          } else if (event.type === "error") {
+            assistantMsg.remove();
+            showErrorBubble(event.message);
+          }
+        }
+      }
+    } catch(err) {
+      assistantMsg.remove();
+      showErrorBubble(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+</script>
+</body>
+</html>
